@@ -1440,50 +1440,46 @@ var SAVE_KEY = 'office-adventure-v1';
    ---------------------------------------------------------------- */
 var historyReady = false; // set true after initial load
 
-function pushHistory(view, room) {
+function pushHistory(view) {
   if (!historyReady) return;
-  var hash = view === 'room' && room ? '#room=' + encodeURIComponent(room) : '#' + view;
+  var hash = '#' + view;
   if (location.hash !== hash) {
-    history.pushState({ view: view, room: room || null }, '', hash);
+    history.pushState({ view: view }, '', hash);
   }
 }
 
 function handlePopState(e) {
   var state = e.state;
-  if (!state) {
-    // No state = back to welcome
-    showWelcomeFromHistory();
-    return;
-  }
-  if (state.view === 'home') {
-    showWelcomeFromHistory();
-  } else if (state.view === 'room' && state.room && G.roomMap[state.room]) {
-    // Navigate to room without transition animation or logging
-    G.cur = state.room;
+  var view = state ? state.view : 'home';
+
+  // Close any overlays
+  $('journal-overlay').classList.remove('active');
+  $('map-overlay').classList.remove('active');
+
+  if (view === 'game') {
     $('welcome-screen').classList.add('hidden');
     $('game-screen').classList.add('active');
-    $('journal-overlay').classList.remove('active');
-    $('map-overlay').classList.remove('active');
     renderRoom();
     updateProgress();
     renderMinimap();
+  } else if (view === 'journal') {
+    $('welcome-screen').classList.add('hidden');
+    $('game-screen').classList.add('active');
+    $('journal-overlay').classList.add('active');
+  } else {
+    // home
+    stopDust();
+    $('game-screen').classList.remove('active');
+    $('welcome-screen').classList.remove('hidden');
+    var visitCount = Object.keys(G.visited).length;
+    if (visitCount > 0) {
+      var continueBtn = $('btn-continue');
+      continueBtn.textContent = '\u7E7C\u7E8C\u63A2\u96AA (\u5DF2\u63A2\u7D22 ' + visitCount + ' \u500B\u5834\u666F)';
+      continueBtn.classList.remove('hidden');
+      $('btn-welcome-reset').classList.remove('hidden');
+    }
+    initDust();
   }
-}
-
-function showWelcomeFromHistory() {
-  stopDust();
-  $('game-screen').classList.remove('active');
-  $('journal-overlay').classList.remove('active');
-  $('map-overlay').classList.remove('active');
-  $('welcome-screen').classList.remove('hidden');
-  var visitCount = Object.keys(G.visited).length;
-  if (visitCount > 0) {
-    var continueBtn = $('btn-continue');
-    continueBtn.textContent = '\u7E7C\u7E8C\u63A2\u96AA (\u5DF2\u63A2\u7D22 ' + visitCount + ' \u500B\u5834\u666F)';
-    continueBtn.classList.remove('hidden');
-    $('btn-welcome-reset').classList.remove('hidden');
-  }
-  initDust();
 }
 
 function save() {
@@ -2721,7 +2717,7 @@ function navigateTo(filename, direction) {
     renderRoom();
     updateProgress();
     renderMinimap();
-    pushHistory('room', filename);
+    pushHistory('game');
 
     // Check for hidden character (collect on room entry)
     setTimeout(function () { checkRoomChar(filename); }, 600);
@@ -2748,7 +2744,7 @@ function enterRoom(filename) {
   renderRoom();
   updateProgress();
   renderMinimap();
-  pushHistory('room', filename);
+  pushHistory('game');
 
   // Check if this room has a hidden character (collect on entry)
   setTimeout(function () { checkRoomChar(filename); }, 600);
@@ -3016,13 +3012,14 @@ function bindEvents() {
     renderRoom();
     updateProgress();
     renderMinimap();
-    pushHistory('room', G.cur);
+    pushHistory('game');
   });
 
   // Journal button
   $('btn-journal').addEventListener('click', function () {
     $('journal-overlay').classList.add('active');
     switchTab(currentTab);
+    pushHistory('journal');
   });
 
   // Journal tabs
@@ -3033,6 +3030,7 @@ function bindEvents() {
   // Journal close
   $('journal-close').addEventListener('click', function () {
     $('journal-overlay').classList.remove('active');
+    pushHistory('game');
   });
 
   // Map buttons
